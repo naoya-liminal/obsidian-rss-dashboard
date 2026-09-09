@@ -220,6 +220,41 @@ describe("DashboardView Hotkeys", () => {
      expect(markReadAndNextSpy).toHaveBeenCalled();
    });
 
+  it("selects all filtered articles on Cmd/Ctrl+A but leaves other Cmd/Ctrl combos alone", () => {
+    const { view, spy } = makeViewWithRegisterSpy(leaf, plugin);
+    (leaf as unknown as { view: unknown }).view = view;
+
+    const keydownHandler = getKeydownHandler(spy);
+    expect(keydownHandler).toBeDefined();
+
+    const selectAllSpy = vi
+      .spyOn(view, "actionSelectAllFilteredArticles")
+      .mockImplementation(() => {});
+    const refreshSpy = vi
+      .spyOn(view, "actionRefreshFeeds")
+      .mockImplementation(async () => {});
+
+    const triggerModifiedKey = (
+      key: string,
+      modifiers: { metaKey?: boolean; ctrlKey?: boolean },
+    ) => {
+      const e = new KeyboardEvent("keydown", { key, ...modifiers });
+      Object.defineProperty(e, "target", { value: document.body });
+      keydownHandler!(e);
+    };
+
+    triggerModifiedKey("a", { metaKey: true });
+    expect(selectAllSpy).toHaveBeenCalledTimes(1);
+
+    triggerModifiedKey("a", { ctrlKey: true });
+    expect(selectAllSpy).toHaveBeenCalledTimes(2);
+
+    // Some other Cmd/Ctrl-modified key must still fall through untouched
+    // (native shortcuts), not trigger any dashboard action.
+    triggerModifiedKey("r", { metaKey: true });
+    expect(refreshSpy).not.toHaveBeenCalled();
+  });
+
   it("ignores hotkeys if the view is not the active leaf", () => {
     const { view, spy } = makeViewWithRegisterSpy(leaf, plugin);
     // Leaf is active, but view is NOT the leaf's view

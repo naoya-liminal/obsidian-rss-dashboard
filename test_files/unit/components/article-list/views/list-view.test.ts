@@ -129,4 +129,29 @@ describe("list-view", () => {
 
     expect(onArticleClick).toHaveBeenCalledWith(article);
   });
+
+  it("toggles selection instead of navigating on Cmd/Ctrl+click", () => {
+    const article = makeArticle();
+    const onArticleClick = vi.fn();
+    const onToggleArticleSelection = vi.fn();
+    renderListView(
+      container,
+      [article],
+      {
+        ...baseViewContext({
+          callbacks: { onArticleClick, onToggleArticleSelection },
+        }),
+        showListToolbar: false,
+        listToolbarStyle: "minimal",
+      },
+      baseViewDeps(),
+    );
+
+    container.querySelector(".rss-dashboard-article-item")?.dispatchEvent(
+      new MouseEvent("click", { bubbles: true, ctrlKey: true }),
+    );
+
+    expect(onToggleArticleSelection).toHaveBeenCalledWith(article);
+    expect(onArticleClick).not.toHaveBeenCalled();
+  });
 });

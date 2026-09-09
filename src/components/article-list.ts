@@ -17,7 +17,10 @@ import {
 } from "./article-list/utils/tag-layout-utils";
 import { renderPagination as renderPaginationUtil } from "./article-list/utils/pagination";
 import { renderFeedIcon as renderFeedIconUtil } from "./article-list/utils/feed-icon";
-import { createActionButtons as createArticleActionButtonsUtil } from "./article-list/utils/article-actions";
+import {
+  createActionButtons as createArticleActionButtonsUtil,
+  createSelectionCheckbox,
+} from "./article-list/utils/article-actions";
 import { showArticleContextMenu as showArticleContextMenuUtil } from "./article-list/utils/article-context-menu";
 import { renderFeedView as renderFeedViewUtil } from "./article-list/views/feed-view";
 import { renderListView as renderListViewUtil } from "./article-list/views/list-view";
@@ -60,6 +63,8 @@ interface ArticleListCallbacks {
   onMarkPageAsRead?: () => void;
   onMarkAllAsRead?: () => void;
   onMarkAllAsUnread?: () => void;
+  onSaveAllFiltered?: () => void;
+  onToggleArticleSelection?: (article: FeedItem) => void;
   onPersistSettings?: () => Promise<void> | void;
   onOpenTagsSettings?: () => Promise<void> | void;
   onTagsMutated?: () => void;
@@ -88,6 +93,7 @@ export class ArticleList {
   private highlightService: HighlightService | null = null;
 
   private showFeedSource: boolean = true;
+  private selectedArticleGuids: ReadonlySet<string> = new Set();
   private statusFilters: Set<string>;
   private tagFilters: Set<string>;
   private filterLogic: "AND" | "OR";
@@ -121,6 +127,7 @@ export class ArticleList {
     filterLogic: "AND" | "OR",
     currentFeedUrl?: string | null,
     showFeedSource: boolean = true,
+    selectedArticleGuids: ReadonlySet<string> = new Set(),
   ) {
     this.container = container;
     this.settings = settings;
@@ -138,6 +145,7 @@ export class ArticleList {
     this.filterLogic = filterLogic;
     this.currentFeedUrl = currentFeedUrl || null;
     this.showFeedSource = showFeedSource;
+    this.selectedArticleGuids = selectedArticleGuids;
 
     if (this.settings.highlights?.enabled) {
       this.highlightService = new HighlightService(this.settings.highlights);
@@ -191,6 +199,9 @@ export class ArticleList {
               void this.callbacks.onPersistSettings();
             this.render();
           }
+        },
+        onSaveAllFiltered: () => {
+          this.callbacks.onSaveAllFiltered?.();
         },
       },
     );
@@ -1364,6 +1375,7 @@ export class ArticleList {
       resolveCachedImageUrl: this.callbacks.onResolveCachedImageUrl,
       highlightService: this.highlightService,
       callbacks: this.callbacks,
+      selectedArticleGuids: this.selectedArticleGuids,
     };
   }
 
@@ -1380,7 +1392,22 @@ export class ArticleList {
       scheduleCardTagLayout: (card) => this.scheduleCardTagLayout(card),
       onToggleFeedSectionCollapse: (feedSourceName, isCollapsed) =>
         this.onToggleFeedSectionCollapse(feedSourceName, isCollapsed),
+      renderSelectionCheckbox: (container, article, isSelected) =>
+        this.renderSelectionCheckbox(container, article, isSelected),
     };
+  }
+
+  private renderSelectionCheckbox(
+    container: HTMLElement,
+    article: FeedItem,
+    isSelected: boolean,
+  ): void {
+    createSelectionCheckbox({
+      container,
+      article,
+      isSelected,
+      onToggle: (a) => this.callbacks.onToggleArticleSelection?.(a),
+    });
   }
 
   private renderFeedIcon(

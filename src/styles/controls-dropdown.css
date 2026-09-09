@@ -237,7 +237,8 @@
 /* ============================================
  * 4. Mark All Controls
  * ============================================ */
-.rss-dashboard-mark-all-row {
+.rss-dashboard-mark-all-row,
+.rss-dashboard-save-all-row {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -285,6 +286,11 @@
 .rss-dashboard-dropdown-controls .rss-dashboard-mark-all-button:hover {
   background: var(--background-modifier-hover);
   border-color: var(--rss-dashboard-dropdown-accent);
+}
+
+.rss-dashboard-dropdown-controls .rss-dashboard-save-all-button,
+.rss-dashboard-article-controls .rss-dashboard-save-all-button {
+  flex: 1 1 100%;
 }
 
 .rss-dashboard-dropdown-controls .rss-dashboard-mark-all-read-button,

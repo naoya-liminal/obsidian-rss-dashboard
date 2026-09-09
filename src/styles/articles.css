@@ -404,6 +404,40 @@ body .rss-dashboard-star-toggle.unstarred {
   opacity: 1;
 }
 
+/* Selection checkbox (batch-save multi-select) */
+.rss-dashboard-select-checkbox {
+  --icon-size: 22px;
+  cursor: pointer;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 16px;
+  padding: 3px;
+  background-color: var(--background-primary-alt);
+  opacity: 0.85;
+  transition: opacity 0.2s ease, color 0.2s ease;
+}
+
+body .rss-dashboard-select-checkbox svg {
+  width: var(--icon-size);
+  height: var(--icon-size);
+  display: block;
+  visibility: visible;
+  stroke-width: 2;
+}
+
+.rss-dashboard-select-checkbox:hover {
+  opacity: 1;
+}
+
+.rss-dashboard-select-checkbox.is-selected {
+  opacity: 1;
+  color: var(--interactive-accent);
+}
+
 body .rss-dashboard-star-toggle svg {
   opacity: 1;
 }

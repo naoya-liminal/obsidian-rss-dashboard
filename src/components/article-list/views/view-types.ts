@@ -3,6 +3,7 @@ import type { HighlightService } from "../../../services/highlight-service";
 
 export interface ViewCallbacks {
   onArticleClick: (article: FeedItem) => void;
+  onToggleArticleSelection?: (article: FeedItem) => void;
 }
 
 export interface ViewDeps {
@@ -23,6 +24,11 @@ export interface ViewDeps {
     feedSourceName: string,
     isCollapsed: boolean,
   ): void;
+  renderSelectionCheckbox?(
+    container: HTMLElement,
+    article: FeedItem,
+    isSelected: boolean,
+  ): void;
 }
 
 export interface BaseViewContext {
@@ -34,4 +40,5 @@ export interface BaseViewContext {
   resolveCachedImageUrl?: (remoteUrl: string) => string | null;
   highlightService: HighlightService | null;
   callbacks: ViewCallbacks;
+  selectedArticleGuids?: ReadonlySet<string>;
 }

@@ -709,8 +709,17 @@ export class PluginSettingTab {
 // =============================================================================
 
 export class Notice {
+  message: string;
+
   constructor(message: string, _timeout?: number) {
+    this.message = message;
     console.debug("[Stub Notice]", message);
+  }
+
+  setMessage(message: string): this {
+    this.message = message;
+    console.debug("[Stub Notice]", message);
+    return this;
   }
 
   hide(): void {}

@@ -29,6 +29,16 @@ export function setupDashboardHotkeys(view: RssDashboardView): void {
     // Guard 2: user is typing somewhere — let the input own the event
     if (isTypingTarget(e.target)) return;
 
+    // Cmd/Ctrl+A: select every article in the current filtered view. Handled
+    // before Guard 3 below (which otherwise lets all Ctrl/Cmd combos through
+    // untouched to preserve native shortcuts).
+    if ((e.ctrlKey || e.metaKey) && !e.altKey && !e.shiftKey && e.key.toLowerCase() === "a") {
+      view.actionSelectAllFilteredArticles();
+      e.preventDefault();
+      e.stopPropagation();
+      return;
+    }
+
     // Guard 3: skip OS modified keys (Ctrl/Cmd/Alt) to preserve native shortcuts
     if (e.ctrlKey || e.metaKey || e.altKey) return;
 

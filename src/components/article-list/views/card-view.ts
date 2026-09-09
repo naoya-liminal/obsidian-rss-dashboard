@@ -36,12 +36,19 @@ export function renderCardView(
           : "") +
         (article.mediaType === "podcast"
           ? " rss-dashboard-podcast-article"
-          : ""),
+          : "") +
+        (ctx.selectedArticleGuids?.has(article.guid) ? " is-selected" : ""),
       attr: {
         id: `article-${article.guid}`,
         "data-article-guid": article.guid,
       },
     });
+
+    deps.renderSelectionCheckbox?.(
+      card,
+      article,
+      ctx.selectedArticleGuids?.has(article.guid) ?? false,
+    );
 
     const cardContent = card.createDiv({
       cls: "rss-dashboard-card-content",
@@ -213,7 +220,12 @@ export function renderCardView(
       dateEl.setAttribute("title", dateInfo.title);
     }
 
-    card.addEventListener("click", () => {
+    card.addEventListener("click", (e) => {
+      if (e.metaKey || e.ctrlKey) {
+        e.preventDefault();
+        ctx.callbacks.onToggleArticleSelection?.(article);
+        return;
+      }
       ctx.callbacks.onArticleClick(article);
     });
 

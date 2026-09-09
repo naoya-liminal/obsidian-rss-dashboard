@@ -14,6 +14,7 @@ export interface ArticleHeaderMenuCallbacks {
   onRefreshFeeds: () => Promise<void>;
   onMarkAllAsRead: () => void;
   onMarkAllAsUnread: () => void;
+  onSaveAllFiltered: () => void;
 }
 
 export class ArticleHeaderMenu {
@@ -253,6 +254,19 @@ export class ArticleHeaderMenu {
       cls: "rss-dashboard-mark-all-text",
     });
     unreadBtn.onclick = () => this.callbacks.onMarkAllAsUnread();
+
+    const saveAllRow = controls.createDiv({
+      cls: "rss-dashboard-save-all-row",
+    });
+    const saveAllBtn = saveAllRow.createEl("button", {
+      cls: "rss-dashboard-mark-all-button rss-dashboard-save-all-button",
+    });
+    setIcon(saveAllBtn.createDiv(), "save");
+    saveAllBtn.createSpan({
+      text: "Save all filtered",
+      cls: "rss-dashboard-mark-all-text",
+    });
+    saveAllBtn.onclick = () => this.callbacks.onSaveAllFiltered();
   }
 
   private createDropdownCardLayoutControls(parent: HTMLElement): void {

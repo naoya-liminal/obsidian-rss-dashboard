@@ -225,4 +225,23 @@ describe("feed-view", () => {
 
     expect(onArticleClick).toHaveBeenCalledWith(article);
   });
+
+  it("toggles selection instead of navigating on Cmd/Ctrl+click", () => {
+    const article = makeArticle();
+    const onArticleClick = vi.fn();
+    const onToggleArticleSelection = vi.fn();
+    renderFeedView(
+      container,
+      [article],
+      baseViewContext({ callbacks: { onArticleClick, onToggleArticleSelection } }),
+      baseViewDeps(),
+    );
+
+    container.querySelector(".rss-dashboard-feed-item")?.dispatchEvent(
+      new MouseEvent("click", { bubbles: true, metaKey: true }),
+    );
+
+    expect(onToggleArticleSelection).toHaveBeenCalledWith(article);
+    expect(onArticleClick).not.toHaveBeenCalled();
+  });
 });

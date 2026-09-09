@@ -128,6 +128,9 @@ export class RssDashboardView extends ItemView {
   private inlineArticle: FeedItem | null = null;
   private articleRenderer: ArticleRenderer | null = null;
   private lastClickAnchorKey: string | null = null;
+  // Transient, dashboard-session-only selection for batch-saving; never persisted
+  // to settings (unlike selectedFolders/selectedFeeds).
+  private selectedArticleGuids: Set<string> = new Set();
 
   // ── Highlight match stats ─────────────────────────────────────────────────
   // Populated by computeHighlightMatchCounts() on every render cycle (before
@@ -579,6 +582,181 @@ export class RssDashboardView extends ItemView {
   }
 
   /**
+   * Action: Save every article currently visible under the active filters.
+   * @internal
+   */
+  public async actionSaveAllFilteredArticles(): Promise<void> {
+    const articles = this.getFilteredArticles().filter((a) => !a.saved);
+    await this.batchSaveArticles(articles);
+  }
+
+  /**
+   * Action: Save the currently checkbox-selected articles, then clear the selection.
+   * @internal
+   */
+  public async actionSaveSelectionArticles(): Promise<void> {
+    const guids = this.selectedArticleGuids;
+    const articles = this.getFilteredArticles().filter(
+      (a) => guids.has(a.guid) && !a.saved,
+    );
+    await this.batchSaveArticles(articles);
+    this.selectedArticleGuids.clear();
+  }
+
+  private isBatchSaving = false;
+
+  private async batchSaveArticles(displayArticles: FeedItem[]): Promise<void> {
+    if (displayArticles.length === 0) {
+      new Notice("No articles to save in current view");
+      return;
+    }
+    if (this.isBatchSaving) return;
+    this.isBatchSaving = true;
+
+    const progressNotice = new Notice(
+      `Saving 0/${displayArticles.length} articles...`,
+      0,
+    );
+    let savedCount = 0;
+    let failedCount = 0;
+
+    try {
+      for (let i = 0; i < displayArticles.length; i++) {
+        const displayArticle = displayArticles[i];
+        const backingArticle = this.findBackingArticleForDisplayItem(displayArticle);
+        if (!backingArticle) {
+          failedCount++;
+          continue;
+        }
+
+        try {
+          const feed = this.settings.feeds.find(
+            (f: Feed) => f.url === backingArticle.feedUrl,
+          );
+          let customTemplate: string | undefined;
+          if (feed?.customTemplate) {
+            const templateObj = (
+              this.settings.articleSaving.savedTemplates || []
+            ).find((t) => t.id === feed.customTemplate);
+            customTemplate = templateObj?.template;
+          }
+
+          const file = this.settings.articleSaving.saveFullContent
+            ? await this.saver.saveArticleWithFullContent(
+                backingArticle,
+                undefined,
+                customTemplate,
+              )
+            : await this.saver.saveArticle(
+                backingArticle,
+                undefined,
+                customTemplate,
+              );
+
+          if (file) {
+            const updates = applyAutomaticArticleTags(
+              backingArticle,
+              {
+                saved: true,
+                savedFilePath: file.path,
+                restrictedReason: backingArticle.restrictedReason,
+              },
+              this.settings,
+            );
+            Object.assign(backingArticle, updates);
+            Object.assign(displayArticle, updates);
+            savedCount++;
+          } else {
+            failedCount++;
+          }
+        } catch (err) {
+          console.error("Batch save failed for article:", backingArticle.guid, err);
+          failedCount++;
+        }
+
+        progressNotice.setMessage(
+          `Saving ${i + 1}/${displayArticles.length} articles...`,
+        );
+      }
+    } finally {
+      progressNotice.hide();
+      this.isBatchSaving = false;
+    }
+
+    if (savedCount > 0) {
+      void this.plugin.saveSettings();
+      this.scheduleRender();
+    }
+
+    new Notice(
+      failedCount > 0
+        ? `Saved ${savedCount}/${displayArticles.length} articles (${failedCount} failed)`
+        : `Saved ${savedCount} article${savedCount === 1 ? "" : "s"}`,
+    );
+  }
+
+  /**
+   * Drop any checkbox-selected article that has scrolled out of the active
+   * filter/feed view, so batch-save never touches something the user can no
+   * longer see. A selection survives filter changes that keep it visible
+   * (e.g. re-sorting), but not ones that hide it (e.g. switching feeds).
+   */
+  private pruneSelectionToVisible(visibleArticles: FeedItem[]): void {
+    if (this.selectedArticleGuids.size === 0) return;
+    const visibleGuids = new Set(visibleArticles.map((a) => a.guid));
+    for (const guid of this.selectedArticleGuids) {
+      if (!visibleGuids.has(guid)) this.selectedArticleGuids.delete(guid);
+    }
+  }
+
+  private toggleArticleSelection(article: FeedItem): void {
+    if (this.selectedArticleGuids.has(article.guid)) {
+      this.selectedArticleGuids.delete(article.guid);
+    } else {
+      this.selectedArticleGuids.add(article.guid);
+    }
+    this.scheduleRender();
+  }
+
+  private clearArticleSelection(): void {
+    this.selectedArticleGuids.clear();
+    this.scheduleRender();
+  }
+
+  /**
+   * Action: Select every article currently visible under the active filters.
+   * @internal
+   */
+  public actionSelectAllFilteredArticles(): void {
+    const articles = this.getFilteredArticles();
+    if (articles.length === 0) {
+      new Notice("No articles to select in current view");
+      return;
+    }
+    this.selectedArticleGuids = new Set(articles.map((a) => a.guid));
+    this.scheduleRender();
+  }
+
+  private renderSelectionToolbar(container: HTMLElement): void {
+    if (this.selectedArticleGuids.size === 0) return;
+    const bar = container.createDiv({ cls: "rss-dashboard-selection-toolbar" });
+    bar.createSpan({
+      text: `${this.selectedArticleGuids.size} selected`,
+      cls: "rss-dashboard-selection-count",
+    });
+    const saveBtn = bar.createEl("button", {
+      cls: "rss-dashboard-selection-save-btn",
+      text: "Save selected",
+    });
+    saveBtn.onclick = () => void this.actionSaveSelectionArticles();
+    const clearBtn = bar.createEl("button", {
+      cls: "rss-dashboard-selection-clear-btn",
+      text: "Clear selection",
+    });
+    clearBtn.onclick = () => this.clearArticleSelection();
+  }
+
+  /**
    * Action: Set status filters on the dashboard.
    * @internal
    */
@@ -926,6 +1104,8 @@ export class RssDashboardView extends ItemView {
       // and before renderFilterSubheader() which reads this.highlightMatchCounts.
       this.computeHighlightMatchCounts(allFilteredArticles);
 
+      this.pruneSelectionToVisible(allFilteredArticles);
+
       if (this.inlineArticle) {
         this.renderInlineArticle(contentContainer);
         return;
@@ -933,6 +1113,7 @@ export class RssDashboardView extends ItemView {
 
       this.renderToolbar(contentContainer);
       this.renderFilterSubheader(contentContainer);
+      this.renderSelectionToolbar(contentContainer);
 
       const articlesContainer = contentContainer.createDiv({
         cls: "rss-dashboard-articles",
@@ -1034,6 +1215,12 @@ export class RssDashboardView extends ItemView {
           onMarkAllAsUnread: () => {
             this.actionMarkAllAsUnread();
           },
+          onSaveAllFiltered: () => {
+            void this.actionSaveAllFilteredArticles();
+          },
+          onToggleArticleSelection: (article) => {
+            this.toggleArticleSelection(article);
+          },
         },
         currentPage,
         pagination.totalPages,
@@ -1044,6 +1231,7 @@ export class RssDashboardView extends ItemView {
         this.filterLogic,
         this.currentFeed?.url,
         this.currentFeed === null,
+        this.selectedArticleGuids,
       );
 
       this.articleList.setEmptyStateContext(

@@ -25,6 +25,18 @@
   border-color: var(--interactive-accent);
 }
 
+.rss-dashboard-article-item.is-selected {
+  border-color: var(--interactive-accent);
+  box-shadow: 0 0 0 2px var(--interactive-accent);
+}
+
+.rss-dashboard-article-item > .rss-dashboard-select-checkbox {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  z-index: 2;
+}
+
 .rss-dashboard-article-item.unread .rss-dashboard-article-title {
   font-weight: bold;
 }

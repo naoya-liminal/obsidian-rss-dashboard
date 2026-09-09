@@ -25,9 +25,15 @@ export function renderListView(
         (article.starred ? " starred" : " unstarred") +
         (article.saved ? " saved" : "") +
         (article.mediaType === "video" ? " video" : "") +
-        (article.mediaType === "podcast" ? " podcast" : ""),
+        (article.mediaType === "podcast" ? " podcast" : "") +
+        (ctx.selectedArticleGuids?.has(article.guid) ? " is-selected" : ""),
       attr: { id: `article-${article.guid}` },
     });
+    deps.renderSelectionCheckbox?.(
+      articleEl,
+      article,
+      ctx.selectedArticleGuids?.has(article.guid) ?? false,
+    );
     const useBottomRow =
       ctx.showListToolbar && ctx.listToolbarStyle === "bottom-row";
     const useMinimal =
@@ -145,7 +151,12 @@ export function renderListView(
       footerDateEl.textContent = dateInfo.text;
       footerDateEl.setAttribute("title", dateInfo.title);
     }
-    articleEl.addEventListener("click", () => {
+    articleEl.addEventListener("click", (e) => {
+      if (e.metaKey || e.ctrlKey) {
+        e.preventDefault();
+        ctx.callbacks.onToggleArticleSelection?.(article);
+        return;
+      }
       ctx.callbacks.onArticleClick(article);
     });
     articleEl.addEventListener("contextmenu", (e) => {

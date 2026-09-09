@@ -1058,6 +1058,26 @@ export default class RssDashboardPlugin extends Plugin {
         },
       });
 
+      this.addCommand({
+        id: "save-all-filtered-articles",
+        name: "Save all filtered articles",
+        checkCallback: (checking: boolean) => {
+          const leaves = this.app.workspace.getLeavesOfType(
+            RSS_DASHBOARD_VIEW_TYPE,
+          );
+          if (leaves.length > 0) {
+            if (!checking) {
+              void (async () => {
+                const view = await this.getActiveDashboardView();
+                if (view) await view.actionSaveAllFilteredArticles();
+              })();
+            }
+            return true;
+          }
+          return false;
+        },
+      });
+
       const delay = Number.isFinite(this.settings.startupRefreshDelaySeconds)
         ? this.settings.startupRefreshDelaySeconds
         : DEFAULT_SETTINGS.startupRefreshDelaySeconds;

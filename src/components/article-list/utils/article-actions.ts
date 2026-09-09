@@ -225,3 +225,28 @@ export function createActionButtons(arg: CreateActionButtonArgs): void {
   createStarToggle(arg);
   createTagsToggle(arg);
 }
+
+export function createSelectionCheckbox(arg: {
+  article: FeedItem;
+  container: HTMLElement;
+  isSelected: boolean;
+  onToggle: (article: FeedItem) => void;
+}): HTMLElement {
+  const checkbox = arg.container.createDiv({
+    cls: `rss-dashboard-select-checkbox clickable-icon${arg.isSelected ? " is-selected" : ""}`,
+    attr: {
+      role: "checkbox",
+      tabindex: "0",
+      "aria-checked": String(arg.isSelected),
+      "aria-label": "Select article",
+    },
+  });
+  setIcon(checkbox, arg.isSelected ? "check-square" : "square");
+
+  const toggle = (e: Event) => {
+    e.stopPropagation();
+    arg.onToggle(arg.article);
+  };
+  toggleClickableIcon(checkbox, toggle);
+  return checkbox;
+}

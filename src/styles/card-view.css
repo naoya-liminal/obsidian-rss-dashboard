@@ -224,6 +224,18 @@
   background-color: var(--background-modifier-active);
 }
 
+.rss-dashboard-article-card.is-selected {
+  border-color: var(--interactive-accent);
+  box-shadow: 0 0 0 2px var(--interactive-accent);
+}
+
+.rss-dashboard-article-card > .rss-dashboard-select-checkbox {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  z-index: 2;
+}
+
 .rss-dashboard-article-card.unread .rss-dashboard-article-title {
   font-weight: bold;
 }

@@ -26,12 +26,19 @@ function renderArticleCard(
       (article.starred ? " starred" : " unstarred") +
       (article.saved ? " saved" : "") +
       (article.mediaType === "video" ? " rss-dashboard-youtube-article" : "") +
-      (article.mediaType === "podcast" ? " rss-dashboard-podcast-article" : ""),
+      (article.mediaType === "podcast" ? " rss-dashboard-podcast-article" : "") +
+      (ctx.selectedArticleGuids?.has(article.guid) ? " is-selected" : ""),
     attr: {
       id: `article-${article.guid}`,
       "data-article-guid": article.guid,
     },
   });
+
+  deps.renderSelectionCheckbox?.(
+    feedItem,
+    article,
+    ctx.selectedArticleGuids?.has(article.guid) ?? false,
+  );
 
   const feedContent = feedItem.createDiv({
     cls: "rss-dashboard-feed-content",
@@ -153,7 +160,12 @@ function renderArticleCard(
   dateEl.textContent = dateInfo.text;
   dateEl.setAttribute("title", dateInfo.title);
 
-  feedItem.addEventListener("click", () => {
+  feedItem.addEventListener("click", (e) => {
+    if (e.metaKey || e.ctrlKey) {
+      e.preventDefault();
+      ctx.callbacks.onToggleArticleSelection?.(article);
+      return;
+    }
     ctx.callbacks.onArticleClick(article);
   });
 

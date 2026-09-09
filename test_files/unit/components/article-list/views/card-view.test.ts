@@ -374,6 +374,30 @@ describe("card-view", () => {
     expect(onArticleClick).toHaveBeenCalledWith(article);
   });
 
+  it("toggles selection instead of navigating on Cmd/Ctrl+click", () => {
+    const article = makeArticle();
+    const onArticleClick = vi.fn();
+    const onToggleArticleSelection = vi.fn();
+    renderCardView(
+      container,
+      [article],
+      {
+        ...baseViewContext({
+          callbacks: { onArticleClick, onToggleArticleSelection },
+        }),
+        showCardToolbar: false,
+      },
+      baseViewDeps(),
+    );
+
+    container.querySelector(".rss-dashboard-article-card")?.dispatchEvent(
+      new MouseEvent("click", { bubbles: true, metaKey: true }),
+    );
+
+    expect(onToggleArticleSelection).toHaveBeenCalledWith(article);
+    expect(onArticleClick).not.toHaveBeenCalled();
+  });
+
   it("shows summary-only when content contains only a tracking pixel image", () => {
     renderCardView(
       container,

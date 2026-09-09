@@ -21,6 +21,7 @@ export interface ArticleHeaderCallbacks {
   onRefreshFeeds: () => Promise<void>;
   onMarkAllAsRead: () => void;
   onMarkAllAsUnread: () => void;
+  onSaveAllFiltered: () => void;
 }
 
 type MenuOptionEntries = Array<[label: string, value: string]>;
@@ -233,6 +234,7 @@ export class ArticleHeader {
         onRefreshFeeds: () => this.callbacks.onRefreshFeeds(),
         onMarkAllAsRead: () => this.callbacks.onMarkAllAsRead(),
         onMarkAllAsUnread: () => this.callbacks.onMarkAllAsUnread(),
+        onSaveAllFiltered: () => this.callbacks.onSaveAllFiltered(),
       },
     );
     this.headerMenu.render(rightSection);
@@ -360,6 +362,19 @@ export class ArticleHeader {
       cls: "rss-dashboard-mark-all-text",
     });
     unreadBtn.onclick = () => this.callbacks.onMarkAllAsUnread();
+
+    const saveAllRow = controls.createDiv({
+      cls: "rss-dashboard-save-all-row",
+    });
+    const saveAllBtn = saveAllRow.createEl("button", {
+      cls: "rss-dashboard-mark-all-button rss-dashboard-save-all-button",
+    });
+    setIcon(saveAllBtn.createDiv(), "save");
+    saveAllBtn.createSpan({
+      text: "Save all filtered",
+      cls: "rss-dashboard-mark-all-text",
+    });
+    saveAllBtn.onclick = () => this.callbacks.onSaveAllFiltered();
   }
 
   /**
