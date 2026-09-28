@@ -36,6 +36,11 @@ import { KeywordFilterService } from "../services/keyword-filter-service";
 import { shouldUseMobileSidebarLayout, setCssProps } from "../utils/platform-utils";
 import { formatDashboardMultiFiltersTitle } from "../utils/filter-title-format";
 import { computePagination } from "../utils/pagination-utils";
+import { matchesArticleSearchQuery } from "../utils/article-search";
+import {
+  BulkSaveWarnModal,
+  BULK_SAVE_WARN_THRESHOLD,
+} from "../modals/bulk-save-warn-modal";
 import { applyAutomaticArticleTags } from "../utils/tag-utils";
 import { resolveItemExternalUrl } from "../utils/item-url-utils";
 import { buildArticleEmptyStateContext } from "../utils/filter-detection";
@@ -89,6 +94,8 @@ export class RssDashboardView extends ItemView {
   private activeStatusFilters = new Set<string>();
   private activeTagFilters = new Set<string>();
   private filterLogic: "AND" | "OR" = "OR";
+  private articleSearchQuery = "";
+  private articleSearchDebounceTimer: number | null = null;
   public sidebar!: Sidebar;
   private articleList!: ArticleList;
   private sidebarContainer: HTMLElement | null = null;
@@ -610,6 +617,15 @@ export class RssDashboardView extends ItemView {
       new Notice("No articles to save in current view");
       return;
     }
+    if (displayArticles.length > BULK_SAVE_WARN_THRESHOLD) {
+      const modal = new BulkSaveWarnModal(this.app, displayArticles.length);
+      modal.open();
+      const confirmed = await modal.waitForClose();
+      if (!confirmed) {
+        new Notice("Save cancelled");
+        return;
+      }
+    }
     if (this.isBatchSaving) return;
     this.isBatchSaving = true;
 
@@ -1017,6 +1033,7 @@ export class RssDashboardView extends ItemView {
             const modal = new FeedManagerModal(this.app, this.plugin);
             modal.open();
           },
+          onArticleSearch: this.applyArticleSearch.bind(this),
         },
       );
     }
@@ -1149,8 +1166,8 @@ export class RssDashboardView extends ItemView {
           },
           onToggleViewStyle: this.handleToggleViewStyle.bind(this),
           onRefreshFeeds: this.handleRefreshFeeds.bind(this),
-          onSearch: (_q: string) => {
-            // State is handled by ArticleList locally, but we could sync it here if needed
+          onSearch: (q: string) => {
+            this.applyArticleSearch(q);
           },
           onOpenViewFilters: () => {
             this.openViewingFiltersMenu();
@@ -2759,6 +2776,7 @@ export class RssDashboardView extends ItemView {
         onManageFeeds: () => {
           new FeedManagerModal(this.app, this.plugin).open();
         },
+        onArticleSearch: this.applyArticleSearch.bind(this),
         onActivateDashboard: () => void this.plugin.activateView(),
         onActivateDiscover: () => void this.plugin.activateDiscoverView(),
       },
@@ -3394,6 +3412,14 @@ export class RssDashboardView extends ItemView {
       ignoreAgeFilter?: boolean;
     } = {},
   ): boolean {
+    // 0. Article search query (applied here so filter counts reflect it)
+    if (
+      this.articleSearchQuery &&
+      !matchesArticleSearchQuery(item, this.articleSearchQuery)
+    ) {
+      return false;
+    }
+
     // 1. Check selected tags (if any)
     if (this.selectedTags.length > 0) {
       const mode = this.settings.sidebarTagFilterMode || "or";
@@ -4055,6 +4081,42 @@ export class RssDashboardView extends ItemView {
       this.refreshFilterStatusBarOnly();
       this.scheduleHeaderTitleRefresh();
     }
+  }
+
+  /**
+   * Apply the article search query across all articles in the current scope
+   * (not just the rendered page), debounced. Resets to page 1.
+   */
+  private applyArticleSearch(query: string): void {
+    this.articleSearchQuery = (query || "").trim();
+    if (this.articleSearchDebounceTimer !== null) {
+      window.clearTimeout(this.articleSearchDebounceTimer);
+    }
+    this.articleSearchDebounceTimer = window.setTimeout(() => {
+      this.articleSearchDebounceTimer = null;
+      if (!this.articleList) return;
+      this.setCurrentPageState(1);
+
+      const filtered = this.getFilteredArticles();
+      const pageSize = this.getCurrentPageSize();
+      const pagination = computePagination({
+        totalItems: filtered.length,
+        pageSize,
+        requestedPage: this.getCurrentPage(),
+      });
+      this.articleList.refilter(
+        new Set(this.activeStatusFilters),
+        new Set(this.activeTagFilters),
+        this.filterLogic,
+        filtered.slice(pagination.startIdx, pagination.endIdx),
+        pagination.currentPage,
+        pagination.totalPages,
+        pageSize,
+        filtered.length,
+      );
+      this.refreshFilterStatusBarOnly();
+      this.scheduleHeaderTitleRefresh();
+    }, 220);
   }
 
   private scheduleHeaderTitleRefresh(): void {

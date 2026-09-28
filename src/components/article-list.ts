@@ -97,7 +97,6 @@ export class ArticleList {
   private statusFilters: Set<string>;
   private tagFilters: Set<string>;
   private filterLogic: "AND" | "OR";
-  private articleSearchQuery: string = "";
   private tagsDropdownCleanup: (() => void) | null = null;
   private currentTagsDropdownAnchor: HTMLElement | null = null;
   private activePortal: HTMLElement | null = null;
@@ -165,11 +164,7 @@ export class ArticleList {
       this.filterLogic,
       {
         onToggleSidebar: () => this.callbacks.onToggleSidebar(),
-        onSearch: (q) => {
-          this.articleSearchQuery = q;
-          this.filterArticlesBySearch(q);
-          this.callbacks.onSearch(q);
-        },
+        onSearch: (q) => this.callbacks.onSearch(q),
         onSortChange: (s) => this.callbacks.onSortChange(s),
         onGroupChange: (g) => this.callbacks.onGroupChange(g),
         onFilterChange: (f) => this.callbacks.onFilterChange(f),
@@ -467,9 +462,6 @@ export class ArticleList {
       this.header.render();
     }
     this.renderArticles();
-    if (this.articleSearchQuery) {
-      this.filterArticlesBySearch(this.articleSearchQuery);
-    }
 
     window.requestAnimationFrame(() => {
       const shouldForceCardTopAnchor =
@@ -597,11 +589,6 @@ export class ArticleList {
       )
       .forEach((el) => el.remove());
     this.renderArticles();
-
-    // Ensure local search filter is reapplied after articles list is recreated
-    if (this.articleSearchQuery) {
-      this.filterArticlesBySearch(this.articleSearchQuery);
-    }
   }
 
   public updateHeaderTitle(title: string, tooltip: string | null): void {
@@ -1156,35 +1143,6 @@ export class ArticleList {
     if (articleEl.classList.contains("rss-dashboard-article-card")) {
       this.scheduleCardTagLayout(articleEl);
     }
-  }
-
-  /**
-   * Filter articles by search query (client-side filtering by title)
-   */
-  private filterArticlesBySearch(query: string): void {
-    const articlesList = this.container.querySelector(
-      ".rss-dashboard-articles-list",
-    );
-
-    if (!articlesList) return;
-
-    const articleElements = articlesList.querySelectorAll(
-      ".rss-dashboard-article-item, .rss-dashboard-article-card, .rss-dashboard-feed-item",
-    );
-
-    articleElements.forEach((el) => {
-      const titleEl = el.querySelector(".rss-dashboard-article-title");
-      const title =
-        (titleEl as HTMLElement | null)?.dataset.articleTitle?.toLowerCase() ||
-        titleEl?.textContent?.toLowerCase() ||
-        "";
-
-      if (query && !title.includes(query)) {
-        (el as HTMLElement).classList.add("rss-dashboard-search-hidden");
-      } else {
-        (el as HTMLElement).classList.remove("rss-dashboard-search-hidden");
-      }
-    });
   }
 
   private renderArticles(): void {

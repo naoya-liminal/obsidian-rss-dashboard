@@ -159,6 +159,8 @@ export class ArticleHeaderMenu {
     const searchContainer = controls.createDiv({
       cls: "rss-dashboard-article-search-container",
     });
+    // Article search is driven from the sidebar search box.
+    searchContainer.addClass("rss-dashboard-search-hidden");
     setIcon(
       searchContainer.createDiv({ cls: "rss-dashboard-article-search-icon" }),
       "search",

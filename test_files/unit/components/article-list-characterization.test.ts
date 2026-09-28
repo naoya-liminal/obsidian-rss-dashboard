@@ -2,11 +2,6 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { buildArticle, createArticleListHarness } from "./article-list-harness";
 import { Feed } from "../../../src/types/types";
 
-interface TestableArticleList {
-  filterArticlesBySearch(query: string): void;
-  articleSearchQuery: string;
-}
-
 describe("Phase 7 - ArticleList characterization", () => {
   afterEach(() => {
     document.body.empty();
@@ -50,75 +45,6 @@ describe("Phase 7 - ArticleList characterization", () => {
     expect(headerElAfter).toBe(headerEl);
     expect(listElAfter).not.toBe(listEl);
     expect(paginationElAfter).not.toBe(paginationEl);
-
-    h.cleanup();
-  });
-
-  it("filterArticlesBySearch should hide and unhide items via rss-dashboard-search-hidden", () => {
-    const h = createArticleListHarness({
-      settings: {
-        viewStyle: "list",
-        articleGroupBy: "none",
-        articleSort: "newest",
-      },
-      articles: [
-        buildArticle({ guid: "1", title: "Hello World" }),
-        buildArticle({ guid: "2", title: "Something Else" }),
-      ],
-    });
-
-    h.list.render();
-
-    (h.list as unknown as TestableArticleList).filterArticlesBySearch("hello");
-    expect(
-      h.getArticleEl("1")?.classList.contains("rss-dashboard-search-hidden"),
-    ).toBe(false);
-    expect(
-      h.getArticleEl("2")?.classList.contains("rss-dashboard-search-hidden"),
-    ).toBe(true);
-
-    (h.list as unknown as TestableArticleList).filterArticlesBySearch("");
-    expect(
-      h.getArticleEl("2")?.classList.contains("rss-dashboard-search-hidden"),
-    ).toBe(false);
-
-    h.cleanup();
-  });
-
-  it("filterArticlesBySearch should also hide and unhide feed view items", () => {
-    const h = createArticleListHarness({
-      settings: {
-        viewStyle: "feed",
-        articleGroupBy: "none",
-        articleSort: "newest",
-      },
-      articles: [
-        buildArticle({ guid: "1", title: "Hello Feed" }),
-        buildArticle({ guid: "2", title: "Something Else" }),
-      ],
-    });
-
-    h.list.render();
-
-    expect(
-      h.getArticleEl("1")?.classList.contains("rss-dashboard-feed-item"),
-    ).toBe(true);
-    expect(
-      h.getArticleEl("2")?.classList.contains("rss-dashboard-feed-item"),
-    ).toBe(true);
-
-    (h.list as unknown as TestableArticleList).filterArticlesBySearch("hello");
-    expect(
-      h.getArticleEl("1")?.classList.contains("rss-dashboard-search-hidden"),
-    ).toBe(false);
-    expect(
-      h.getArticleEl("2")?.classList.contains("rss-dashboard-search-hidden"),
-    ).toBe(true);
-
-    (h.list as unknown as TestableArticleList).filterArticlesBySearch("");
-    expect(
-      h.getArticleEl("2")?.classList.contains("rss-dashboard-search-hidden"),
-    ).toBe(false);
 
     h.cleanup();
   });
@@ -178,68 +104,6 @@ describe("Phase 7 - ArticleList characterization", () => {
     h.list.render();
 
     expect(h.getPaginationEl()).toBeNull();
-    h.cleanup();
-  });
-
-  it("searches the original title after MathJax replaces its visible text", () => {
-    const h = createArticleListHarness({
-      settings: {
-        viewStyle: "list",
-        articleGroupBy: "none",
-        articleSort: "newest",
-      },
-      articles: [
-        buildArticle({
-          guid: "math",
-          title: String.raw`Decomposition of $\mathrm{GL}_n$`,
-        }),
-      ],
-    });
-
-    h.list.render();
-    const title = h
-      .getArticleEl("math")
-      ?.querySelector<HTMLElement>(".rss-dashboard-article-title");
-    title?.replaceChildren(title.ownerDocument.createElement("mjx-container"));
-
-    (h.list as unknown as TestableArticleList).filterArticlesBySearch("gl");
-
-    expect(
-      h
-        .getArticleEl("math")
-        ?.classList.contains("rss-dashboard-search-hidden"),
-    ).toBe(false);
-    h.cleanup();
-  });
-
-  it("refilter should re-apply the existing local search query after list recreation", () => {
-    const h = createArticleListHarness({
-      settings: {
-        viewStyle: "list",
-        articleGroupBy: "none",
-        articleSort: "newest",
-      },
-      articles: [
-        buildArticle({ guid: "1", title: "Keep Me" }),
-        buildArticle({ guid: "2", title: "Hide Me" }),
-      ],
-    });
-
-    h.list.render();
-
-    // Characterize current behavior: search query is treated as pre-normalized (lowercased).
-    (h.list as unknown as TestableArticleList).articleSearchQuery = "hide";
-
-    h.list.refilter(new Set(), new Set(), "OR", h.articles, 1, 1, 10, 2);
-
-    // Query "hide" should keep "Hide Me" visible and hide non-matching items.
-    expect(
-      h.getArticleEl("1")?.classList.contains("rss-dashboard-search-hidden"),
-    ).toBe(true);
-    expect(
-      h.getArticleEl("2")?.classList.contains("rss-dashboard-search-hidden"),
-    ).toBe(false);
-
     h.cleanup();
   });
 

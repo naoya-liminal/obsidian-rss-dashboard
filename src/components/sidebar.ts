@@ -25,7 +25,7 @@ import {
   attachInputClearButton,
   windowInstanceOf,
 } from "../utils/platform-utils";
-import { SidebarSearchService } from "../services/sidebar-search-service";
+import { matchesArticleSearchQuery } from "../utils/article-search";
 import { isValidFolderName } from "../utils/validation";
 import type RssDashboardPlugin from "../../main";
 import { applyFeedSortOrder } from "../utils/sidebar-sort-utils";
@@ -101,6 +101,7 @@ export interface SidebarCallbacks {
   onToggleSidebar: () => void;
   onOpenSettings?: () => void;
   onManageFeeds?: () => void;
+  onArticleSearch?: (query: string) => void;
   onActivateDashboard?: () => void;
   onActivateDiscover?: () => void;
   onFolderMultiSelect?: (folders: string[]) => void;
@@ -3315,7 +3316,7 @@ export class Sidebar {
       cls: "rss-dashboard-search-input",
       attr: {
         type: "text",
-        placeholder: "Search (feed:, folder:, tag:)",
+        placeholder: "Search articles (feed:, author:, title:)",
         autocomplete: "off",
         spellcheck: "false",
         value: this.searchQuery,
@@ -3333,6 +3334,7 @@ export class Sidebar {
           window.clearTimeout(searchTimeout);
         }
         this.filterFeedsAndFolders("");
+        this.callbacks.onArticleSearch?.("");
         searchInput.focus();
       },
       {
@@ -3362,6 +3364,7 @@ export class Sidebar {
       }
       searchTimeout = window.setTimeout(() => {
         this.filterFeedsAndFolders(query);
+        this.callbacks.onArticleSearch?.(rawQuery);
       }, 150);
     });
 
@@ -4241,13 +4244,26 @@ export class Sidebar {
   }
 
   /**
-   * Filter sidebar entities by search query.
-   * Supports scoped queries: feed:, folder:/path:, tag:
+   * URLs of feeds that have at least one article matching the search query.
+   */
+  private getSearchMatchingFeedUrls(query: string): Set<string> {
+    const urls = new Set<string>();
+    for (const feed of this.settings.feeds) {
+      if ((feed.items || []).some((a) => matchesArticleSearchQuery(a, query))) {
+        urls.add(feed.url);
+      }
+    }
+    return urls;
+  }
+
+  /**
+   * Filter sidebar entities by article search query: only feeds with at least
+   * one matching article (and the folders containing them) stay visible.
    */
   private filterFeedsAndFolders(query: string): void {
     this.resetSidebarSearchPresentation();
 
-    const parsedQuery = SidebarSearchService.parseQuery(query);
+    const trimmedQuery = (query || "").trim();
 
     const feedElements = Array.from(
       this.container.querySelectorAll<HTMLElement>(".rss-dashboard-feed"),
@@ -4261,43 +4277,22 @@ export class Sidebar {
       ".rss-dashboard-all-feeds-button",
     );
 
-    if (!parsedQuery.term) {
+    if (!trimmedQuery) {
       allFeedsButton?.removeClass("rss-dashboard-search-hidden");
       return;
     }
 
+    const matchingFeedUrls = this.getSearchMatchingFeedUrls(trimmedQuery);
+
+    // Folders are never matched directly; they are shown only when they
+    // contain a visible feed or subfolder (computed below).
     const folderDirectMatches = new Map<HTMLElement, boolean>();
     folderElements.forEach((folderEl) => {
-      const header = folderEl.querySelector<HTMLElement>(
-        ".rss-dashboard-feed-folder-header",
-      );
-      const folderPath =
-        folderEl.dataset.folderPath || header?.dataset.folderPath || "";
-      const folderName =
-        header?.dataset.folderName ||
-        header
-          ?.querySelector(".rss-dashboard-feed-folder-name")
-          ?.textContent?.trim() ||
-        "";
-
-      folderDirectMatches.set(
-        folderEl,
-        SidebarSearchService.matchesFolder(parsedQuery, folderName, folderPath),
-      );
+      folderDirectMatches.set(folderEl, false);
     });
 
     feedElements.forEach((feedEl) => {
-      const feedTitle =
-        feedEl.dataset.feedTitle ||
-        feedEl.querySelector(".rss-dashboard-feed-name")?.textContent?.trim() ||
-        "";
-      const feedFolderPath = feedEl.dataset.feedFolder || "";
-
-      const feedMatch = SidebarSearchService.matchesFeed(
-        parsedQuery,
-        feedTitle,
-        feedFolderPath,
-      );
+      const feedMatch = matchingFeedUrls.has(feedEl.dataset.feedUrl || "");
 
       const hasMatchedFolderAncestor = this.collectAncestorFolders(feedEl).some(
         (folderEl) => folderDirectMatches.get(folderEl) === true,
